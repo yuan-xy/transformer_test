@@ -465,18 +465,19 @@ class SimpleLossCompute:
 
 
 seq_len = 80
-
+THREE = 3 # map 234 -> 567
 def data_gen(V, batch, nbatches):
     "Generate random data for a src-tgt copy task."
     for i in range(nbatches):
-        data = torch.from_numpy(np.random.randint(1, V, size=(batch, seq_len))).cuda()
+        data = torch.from_numpy(np.random.randint(2, V-THREE, size=(batch, seq_len))).cuda()
         data[:, 0] = 1
         src = Variable(data, requires_grad=False)
-        tgt = Variable(data, requires_grad=False)
+        tgt = Variable(data+THREE, requires_grad=False)
+        tgt[:, 0] = 1
         yield Batch(src, tgt, 0)
 
 # Train the simple copy task.
-V = 11
+V = 11 + THREE
 ibatch = 30
 criterion = nn.CrossEntropyLoss()
 # criterion = LabelSmoothing(size=V, padding_idx=0, smoothing=0.0)
@@ -516,12 +517,18 @@ def greedy_decode(model, src, src_mask, max_len, start_symbol):
     return ys
 
 model.eval()
+
+def pass_test(tensor, arr):
+    t2 = tensor.clone().detach()
+    t2[:,1:] -= THREE
+    return t2.cpu().tolist() == arr
+
 def test60():
-    arr = [[1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,10,10,10,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,10,10,10]]
+    arr = [[1,2,2,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,10,10,10,2,2,2,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,10,10,10]]
     src = Variable(torch.LongTensor(arr) ).cuda()
     src_mask = Variable(torch.ones(1, 1, 60) ).cuda()
     ret = greedy_decode(model, src, src_mask, max_len=60, start_symbol=1)
-    if ret.cpu().tolist() == arr: print("PASS!!!")
+    if pass_test(ret, arr): print("PASS!!!")
     print("decode:", ret)
     return ret
 
@@ -530,7 +537,7 @@ def test10():
     src = Variable(torch.LongTensor(arr) ).cuda()
     src_mask = Variable(torch.ones(1, 1, 10) ).cuda()
     ret = greedy_decode(model, src, src_mask, max_len=10, start_symbol=1)
-    if ret.cpu().tolist() == arr: print("PASS!!!")
+    if pass_test(ret, arr): print("PASS!!!")
     print("decode:", ret)
     return ret    
 
@@ -539,7 +546,7 @@ def test100():
     src = Variable(torch.LongTensor(arr) ).cuda()
     src_mask = Variable(torch.ones(1, 1, 100) ).cuda()
     ret = greedy_decode(model, src, src_mask, max_len=100, start_symbol=1)
-    if ret.cpu().tolist() == arr: print("PASS!!!")
+    if pass_test(ret, arr): print("PASS!!!")
     print("decode:", ret)
     return ret
 
