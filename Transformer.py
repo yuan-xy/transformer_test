@@ -442,17 +442,6 @@ plt.plot(np.arange(1, 100), [loss(x) for x in range(1, 100)])
 # 
 # > We can begin by trying out a simple copy-task. Given a random set of input symbols from a small vocabulary, the goal is to generate back those same symbols. 
 
-
-def data_gen(V, batch, nbatches):
-    "Generate random data for a src-tgt copy task."
-    for i in range(nbatches):
-        data = torch.from_numpy(np.random.randint(1, V, size=(batch, 100))).cuda()
-        data[:, 0] = 1
-        src = Variable(data, requires_grad=False)
-        tgt = Variable(data, requires_grad=False)
-        yield Batch(src, tgt, 0)
-
-
 class SimpleLossCompute:
     "A simple loss compute and train function."
     def __init__(self, generator, criterion, opt=None):
@@ -464,7 +453,7 @@ class SimpleLossCompute:
         x = self.generator(x)
         _v, idx = torch.max(x,2)
         if idx.equal(y):
-            breakpoint()
+            # breakpoint()
             pass
         loss = self.criterion(x.contiguous().view(-1, x.size(-1)), 
                               y.contiguous().view(-1)) / norm
@@ -474,6 +463,17 @@ class SimpleLossCompute:
             self.opt.zero_grad()
         return loss.data.item() * norm
 
+
+seq_len = 80
+
+def data_gen(V, batch, nbatches):
+    "Generate random data for a src-tgt copy task."
+    for i in range(nbatches):
+        data = torch.from_numpy(np.random.randint(1, V, size=(batch, seq_len))).cuda()
+        data[:, 0] = 1
+        src = Variable(data, requires_grad=False)
+        tgt = Variable(data, requires_grad=False)
+        yield Batch(src, tgt, 0)
 
 # Train the simple copy task.
 V = 11
@@ -522,7 +522,7 @@ def test60():
     src_mask = Variable(torch.ones(1, 1, 60) ).cuda()
     ret = greedy_decode(model, src, src_mask, max_len=60, start_symbol=1)
     if ret.cpu().tolist() == arr: print("PASS!!!")
-    print(ret)
+    print("decode:", ret)
     return ret
 
 def test10():
@@ -531,16 +531,16 @@ def test10():
     src_mask = Variable(torch.ones(1, 1, 10) ).cuda()
     ret = greedy_decode(model, src, src_mask, max_len=10, start_symbol=1)
     if ret.cpu().tolist() == arr: print("PASS!!!")
-    print(ret)
+    print("decode:", ret)
     return ret    
 
 def test100():
     arr = [[1,2,3,4,5]*20]
-    src = Variable(torch.LongTensor() ).cuda()
+    src = Variable(torch.LongTensor(arr) ).cuda()
     src_mask = Variable(torch.ones(1, 1, 100) ).cuda()
     ret = greedy_decode(model, src, src_mask, max_len=100, start_symbol=1)
     if ret.cpu().tolist() == arr: print("PASS!!!")
-    print(ret)
+    print("decode:", ret)
     return ret
 
 test10()
