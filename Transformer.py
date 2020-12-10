@@ -482,6 +482,8 @@ ibatch = 30
 criterion = nn.CrossEntropyLoss()
 # criterion = LabelSmoothing(size=V, padding_idx=0, smoothing=0.0)
 model = make_model(V, V, N=2)
+print("Learn params", sum(p.numel() for p in model.parameters() if p.requires_grad))
+print("All params", sum(p.numel() for p in model.parameters()))
 model.cuda()
 # model_opt = torch.optim.SGD(model.parameters(), lr=0.0001, momentum=0.9)
 model_opt = torch.optim.Adam(model.parameters(), lr=1e-4, betas=(0.9, 0.98), eps=1e-9)
@@ -555,5 +557,3 @@ def test():
 
 test()
 breakpoint()
-
-print(sum(p.numel() for p in model.parameters() if p.requires_grad))
