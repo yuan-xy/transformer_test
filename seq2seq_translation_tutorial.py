@@ -12,7 +12,6 @@ import torch.nn as nn
 from torch import optim
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
-# plt.switch_backend('agg')
 import matplotlib.ticker as ticker
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -20,9 +19,9 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 SOS_token = 0
 EOS_token = 1
 FIRST_CHAR = 2
-V = 11
+V = 21
 
-MAX_LENGTH = 10
+MAX_LENGTH = 30
 
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, hidden_size):
@@ -43,14 +42,14 @@ class EncoderRNN(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size):
+    def __init__(self, hidden_size, output_size, max_length=MAX_LENGTH):
         super(DecoderRNN, self).__init__()
         self.hidden_size = hidden_size
-
         self.embedding = nn.Embedding(output_size, hidden_size)
         self.gru = nn.GRU(hidden_size, hidden_size)
         self.out = nn.Linear(hidden_size, output_size)
         self.softmax = nn.LogSoftmax(dim=1)
+        self.max_length = max_length # API compatible with AttnDecoderRNN
 
     def forward(self, input, hidden):
         output = self.embedding(input).view(1, 1, -1)
@@ -104,7 +103,8 @@ class AttnDecoderRNN(nn.Module):
 teacher_forcing_ratio = 0.5
 
 
-def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_LENGTH):
+def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion):
+    max_length = decoder.max_length
     encoder_hidden = encoder.initHidden()
 
     encoder_optimizer.zero_grad()
@@ -179,7 +179,7 @@ def timeSince(since, percent):
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
 
-def gen_train_pair(vocabulary=V):
+def gen_train_pair(vocabulary=V//2+1):
     "Generate random data for a src-tgt copy task."
     data = np.random.randint(FIRST_CHAR, vocabulary, size=MAX_LENGTH-1)
     data = np.append(data, EOS_token)
@@ -238,7 +238,8 @@ def tensorFromSentence(sentence):
     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
 
 
-def evaluate(encoder, decoder, sentence, max_length=MAX_LENGTH):
+def evaluate(encoder, decoder, sentence):
+    max_length = decoder.max_length
     with torch.no_grad():
         if type(sentence) == list:
             input_tensor = tensorFromSentence(sentence)
@@ -266,39 +267,24 @@ def evaluate(encoder, decoder, sentence, max_length=MAX_LENGTH):
                 decoder_input, decoder_hidden, encoder_outputs)
             decoder_attentions[di] = decoder_attention.data
             topv, topi = decoder_output.data.topk(1)
+            decoded_words.append(topi.item())
             if topi.item() == EOS_token:
-                decoded_words.append('<EOS>')
                 break
-            else:
-                decoded_words.append(topi.item())
-
             decoder_input = topi.squeeze().detach()
 
         return decoded_words, decoder_attentions[:di + 1]
-
-
-def evaluateRandomly(encoder, decoder, n=10):
-    for i in range(n):
-        pair = gen_train_pair()
-        output_words, attentions = evaluate(encoder, decoder, pair[0])
-        print(pair[0])
-        print(pair[1])
-        print('<', output_words)
-        print('')
 
 
 hidden_size = 256
 encoder1 = EncoderRNN(V, hidden_size).to(device)
 attn_decoder1 = AttnDecoderRNN(hidden_size, V, dropout_p=0.1).to(device)
 
-trainIters(encoder1, attn_decoder1, 7500, print_every=500)
-
-evaluateRandomly(encoder1, attn_decoder1)
+trainIters(encoder1, attn_decoder1, 750, print_every=50)
 
 output_words, attentions = evaluate(encoder1, attn_decoder1, [2,3,4,5,6,7,8,9])
-plt.matshow(attentions.numpy())
-plt.show()
-breakpoint()
+# plt.matshow(attentions.numpy())
+# plt.show()
+# breakpoint()
 
 
 ######################################################################
@@ -315,7 +301,7 @@ def showAttention(input_sentence, output_words, attentions):
 
     # Set up axes
     ax.set_xticklabels([''] + input_sentence +
-                       ['<EOS>'], rotation=90)
+                       [EOS_token], rotation=90)
     ax.set_yticklabels([''] + output_words)
 
     # Show label at every tick
@@ -326,8 +312,7 @@ def showAttention(input_sentence, output_words, attentions):
 
 
 def evaluateAndShowAttention(input_sentence):
-    output_words, attentions = evaluate(
-        encoder1, attn_decoder1, input_sentence)
+    output_words, attentions = evaluate(encoder1, attn_decoder1, input_sentence)
     print('input =', input_sentence)
     print('output =', output_words)
     showAttention(input_sentence, output_words, attentions)
@@ -335,4 +320,7 @@ def evaluateAndShowAttention(input_sentence):
 
 
 evaluateAndShowAttention([2,3,4,5,6,7,8,9])
+breakpoint()
+# test out of vocabulary
+evaluateAndShowAttention([2,3,4,5,6,13,14,15])
 breakpoint()
