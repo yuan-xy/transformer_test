@@ -313,7 +313,8 @@ def run_epoch(data_iter, model, loss_compute):
         out = model.forward(batch.src, batch.trg, batch.src_mask, batch.trg_mask)
         loss = loss_compute(out, batch.trg_y, batch.ntokens)
         if loss.data.item() < 0.0001:
-            breakpoint()
+            # breakpoint()
+            pass
         total_loss += loss
         total_tokens += batch.ntokens
         tokens += batch.ntokens
@@ -487,8 +488,8 @@ model_opt = torch.optim.Adam(model.parameters(), lr=1e-4, betas=(0.9, 0.98), eps
 # model_opt = NoamOpt(model.src_embed[0].d_model, 1, 400,
 #         torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
 
-def train():
-    loop_count = 600//ibatch
+def train(total_count=3000):
+    loop_count = total_count//ibatch
     for epoch in range(loop_count):
         model.train()
         run_epoch(data_gen(V, ibatch, 20), model,
@@ -539,13 +540,20 @@ def test100():
     src = Variable(torch.LongTensor(arr) ).cuda()
     src_mask = Variable(torch.ones(1, 1, 100) ).cuda()
     ret = greedy_decode(model, src, src_mask, max_len=100, start_symbol=1)
-    if ret.cpu().tolist() == arr: print("PASS!!!")
+    if ret.cpu().tolist() == arr:
+        print("PASS!!!")
+    elif ret.cpu().tolist()[0:seq_len][0][0:seq_len] == arr[0][0:seq_len]:
+        print("PARTIAL PASS!!!")
+        print("Extra:", ret.cpu().tolist()[0:seq_len][0][seq_len:])
     print("decode:", ret)
     return ret
 
-test10()
-test60()
-test100()
+def test():
+    test10()
+    test60()
+    test100()
+
+test()
 breakpoint()
 
 print(sum(p.numel() for p in model.parameters() if p.requires_grad))
