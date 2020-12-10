@@ -477,7 +477,8 @@ def data_gen(V, batch, nbatches):
         yield Batch(src, tgt, 0)
 
 # Train the simple copy task.
-V = 11
+OUT_OF_V = 3
+V = 11+OUT_OF_V
 ibatch = 30
 criterion = nn.CrossEntropyLoss()
 # criterion = LabelSmoothing(size=V, padding_idx=0, smoothing=0.0)
@@ -492,10 +493,10 @@ def train(total_count=3000):
     loop_count = total_count//ibatch
     for epoch in range(loop_count):
         model.train()
-        run_epoch(data_gen(V, ibatch, 20), model,
+        run_epoch(data_gen(V-OUT_OF_V, ibatch, 20), model,
                   SimpleLossCompute(model.generator, criterion, model_opt))
         model.eval()
-        print(run_epoch(data_gen(V, ibatch, 5), model,
+        print(run_epoch(data_gen(V-OUT_OF_V, ibatch, 5), model,
                         SimpleLossCompute(model.generator, criterion, None)))
 
 train()
@@ -527,10 +528,10 @@ def test60():
     return ret
 
 def test10():
-    arr = [[1,2,3,4,5,6,7,8,9,10]]
+    arr = [[1,2,3,4,5,6,7,8,9,10, 11, 12, 13]]
     src = Variable(torch.LongTensor(arr) ).cuda()
-    src_mask = Variable(torch.ones(1, 1, 10) ).cuda()
-    ret = greedy_decode(model, src, src_mask, max_len=10, start_symbol=1)
+    src_mask = Variable(torch.ones(1, 1, 13) ).cuda()
+    ret = greedy_decode(model, src, src_mask, max_len=13, start_symbol=1)
     if ret.cpu().tolist() == arr: print("PASS!!!")
     print("decode:", ret)
     return ret    
