@@ -181,21 +181,23 @@ def timeSince(since, percent):
 
 def gen_train_pair(vocabulary=V//2+1):
     "Generate random data for a src-tgt copy task."
-    data = np.random.randint(FIRST_CHAR, vocabulary, size=MAX_LENGTH-1)
+    size = np.random.randint(1, MAX_LENGTH-1)
+    data = np.random.randint(FIRST_CHAR, vocabulary, size=size)
     data = np.append(data, EOS_token)
     src = torch.from_numpy(data).cuda().view(-1, 1)
     tgt = torch.from_numpy(data).cuda().view(-1, 1)
     return (src, tgt)
 
 
-def trainIters(encoder, decoder, n_iters, print_every=1000, plot_every=100, learning_rate=0.01):
+def trainIters(encoder, decoder, n_iters, print_every=1000, plot_every=100, lr=1e-4):
     start = time.time()
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
 
-    encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
-    decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
+    encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=lr, betas=(0.9, 0.98), eps=1e-9)
+    decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=lr, betas=(0.9, 0.98), eps=1e-9)
+    
     criterion = nn.NLLLoss()
 
     for iter in range(1, n_iters + 1):
@@ -279,7 +281,7 @@ hidden_size = 256
 encoder1 = EncoderRNN(V, hidden_size).to(device)
 attn_decoder1 = AttnDecoderRNN(hidden_size, V, dropout_p=0.1).to(device)
 
-trainIters(encoder1, attn_decoder1, 750, print_every=50)
+trainIters(encoder1, attn_decoder1, 7500, print_every=500)
 
 output_words, attentions = evaluate(encoder1, attn_decoder1, [2,3,4,5,6,7,8,9])
 # plt.matshow(attentions.numpy())
@@ -321,6 +323,11 @@ def evaluateAndShowAttention(input_sentence):
 
 evaluateAndShowAttention([2,3,4,5,6,7,8,9])
 breakpoint()
+
 # test out of vocabulary
 evaluateAndShowAttention([2,3,4,5,6,13,14,15])
-breakpoint()
+
+# test sentence longer than MAX_LENGTH
+evaluateAndShowAttention([3]*MAX_LENGTH)
+# *** IndexError: index 30 is out of bounds for dimension 0 with size 30
+
