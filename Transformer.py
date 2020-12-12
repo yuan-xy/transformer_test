@@ -465,19 +465,24 @@ class SimpleLossCompute:
         return loss.data.item() * norm
 
 
-seq_len = 80
+seq_len = 20
 
 def data_gen(V, batch, nbatches):
     "Generate random data for a src-tgt copy task."
     for i in range(nbatches):
-        data = torch.from_numpy(np.random.randint(1, V, size=(batch, seq_len))).cuda()
+        scale = np.random.randint(0, 3)
+        npdata = np.random.randint(1, V//(10**scale), size=(batch, seq_len))
+        data = torch.from_numpy(npdata).cuda()
         data[:, 0] = 1
         src = Variable(data, requires_grad=False)
-        tgt = Variable(data, requires_grad=False)
+        max_value = np.max(npdata, axis=1)
+        tgt = torch.ones(batch, 2, dtype=torch.long)
+        tgt[:,1] = torch.from_numpy(max_value)
+        tgt = tgt.cuda()
         yield Batch(src, tgt, 0)
 
 # Train the simple copy task.
-V = 11
+V = 11000
 ibatch = 30
 criterion = nn.CrossEntropyLoss()
 # criterion = LabelSmoothing(size=V, padding_idx=0, smoothing=0.0)

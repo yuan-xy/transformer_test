@@ -19,9 +19,9 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 SOS_token = 0
 EOS_token = 1
 FIRST_CHAR = 2
-V = 21
+V = 11000
 
-MAX_LENGTH = 30
+MAX_LENGTH = 20
 
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, hidden_size):
@@ -181,11 +181,13 @@ def timeSince(since, percent):
 
 def gen_train_pair(vocabulary=V//2+1):
     "Generate random data for a src-tgt copy task."
+    scale = np.random.randint(0, 3)
     size = np.random.randint(1, MAX_LENGTH-1)
-    data = np.random.randint(FIRST_CHAR, vocabulary, size=size)
+    data = np.random.randint(FIRST_CHAR, V//(10**scale), size=size)
     data = np.append(data, EOS_token)
     src = torch.from_numpy(data).cuda().view(-1, 1)
-    tgt = torch.from_numpy(data).cuda().view(-1, 1)
+    max_value = np.max(data)
+    tgt = torch.LongTensor([max_value, EOS_token]).cuda().view(-1, 1)
     return (src, tgt)
 
 
@@ -281,7 +283,7 @@ hidden_size = 256
 encoder1 = EncoderRNN(V, hidden_size).to(device)
 attn_decoder1 = AttnDecoderRNN(hidden_size, V, dropout_p=0.1).to(device)
 
-trainIters(encoder1, attn_decoder1, 7500, print_every=500)
+trainIters(encoder1, attn_decoder1, 750, print_every=50)
 
 output_words, attentions = evaluate(encoder1, attn_decoder1, [2,3,4,5,6,7,8,9])
 # plt.matshow(attentions.numpy())
