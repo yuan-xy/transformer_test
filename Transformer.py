@@ -234,25 +234,19 @@ class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout, max_len=5000):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
-        
-        # # Compute the positional encodings once in log space.
-        # pe = torch.zeros(max_len, d_model)
-        # position = torch.arange(0, max_len).unsqueeze(1)
-        # div_term = torch.exp(torch.arange(0, d_model, 2) *
-        #                      -(math.log(10000.0) / d_model))
-        # pe[:, 0::2] = torch.sin(position * div_term)
-        # pe[:, 1::2] = torch.cos(position * div_term)
-        # pe = pe.unsqueeze(0)
-        # self.register_buffer('pe', pe)
-        
-    def forward(self, x):
-        pe = torch.zeros(x.size(1), x.size(2))
-        position = torch.arange(0, x.size(1)).unsqueeze(1)
-        pe = position * torch.ones(x.size(2)) * 0.0001
-        pe = pe.unsqueeze(0).cuda()
-        x = x + Variable(pe, requires_grad=False)
-        return self.dropout(x)
+        self.linear_in = nn.Linear(d_model+seq_len, d_model)
+        self.linear_out = nn.Linear(d_model+seq_len-1, d_model)
 
+    def forward(self, x):
+        pos = torch.zeros(x.size(0),1,1) + torch.eye(x.size(1),x.size(1)).unsqueeze(0)
+        x = torch.cat((x, pos.cuda()), 2)
+        if x.size(1) == seq_len:
+            return self.linear_in(x)
+        elif x.size(1) == seq_len-1:
+            return self.linear_out(x)
+        else:
+            #greedy_decode
+            breakpoint()
 
 # > Below the positional encoding will add in a sine wave based on position. The frequency and offset of the wave is different for each dimension. 
 
@@ -505,7 +499,7 @@ train()
 
 def greedy_decode(model, src, src_mask, max_len, start_symbol):
     memory = model.encode(src, src_mask)
-    ys = torch.ones(1, 1).fill_(start_symbol).type_as(src.data)
+    ys = torch.ones(1, 79).fill_(start_symbol).type_as(src.data)
     for i in range(max_len-1):
         out = model.decode(memory, src_mask, 
                            Variable(ys), 
@@ -514,25 +508,28 @@ def greedy_decode(model, src, src_mask, max_len, start_symbol):
         prob = model.generator(out[:, -1])
         _, next_word = torch.max(prob, dim = 1)
         next_word = next_word.data[0]
-        ys = torch.cat([ys, 
-                        torch.ones(1, 1).type_as(src.data).fill_(next_word)], dim=1)
+        if i+1 >= ys.size(1):
+            break
+        ys[0,i+1] = next_word
+        # ys = torch.cat([ys, 
+        #                 torch.ones(1, 1).type_as(src.data).fill_(next_word)], dim=1)
     return ys
 
 model.eval()
 def test60():
-    arr = [[1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,10,10,10,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,10,10,10]]
+    arr = [[1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,10,10,10,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,10,10,10]+[0]*20]
     src = Variable(torch.LongTensor(arr) ).cuda()
-    src_mask = Variable(torch.ones(1, 1, 60) ).cuda()
-    ret = greedy_decode(model, src, src_mask, max_len=60, start_symbol=1)
+    src_mask = Variable(torch.ones(1, 1, 80) ).cuda()
+    ret = greedy_decode(model, src, src_mask, max_len=80, start_symbol=1)
     if ret.cpu().tolist() == arr: print("PASS!!!")
     print("decode:", ret)
     return ret
 
 def test10():
-    arr = [[1,2,3,4,5,6,7,8,9,10]]
+    arr = [[1,2,3,4,5,6,7,8,9,10]+[0]*70]
     src = Variable(torch.LongTensor(arr) ).cuda()
-    src_mask = Variable(torch.ones(1, 1, 10) ).cuda()
-    ret = greedy_decode(model, src, src_mask, max_len=10, start_symbol=1)
+    src_mask = Variable(torch.ones(1, 1, 80) ).cuda()
+    ret = greedy_decode(model, src, src_mask, max_len=80, start_symbol=1)
     if ret.cpu().tolist() == arr: print("PASS!!!")
     print("decode:", ret)
     return ret    
@@ -548,4 +545,5 @@ def test100():
 
 test10()
 test60()
-test100()
+# test100()
+breakpoint()
